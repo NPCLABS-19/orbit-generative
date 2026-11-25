@@ -67,7 +67,7 @@ function syncTimer() { engine?.setSession(deadline ? Math.max(0, deadline - tota
 function setTimer() { const seconds = Number($('timer').value) * 60; deadline = seconds ? totalTime() + seconds : 0; syncTimer(); }
 function setBusy(value) {
   busy = value; $('play').disabled = value;
-  document.querySelectorAll('[data-mode], #variation, #reset').forEach(button => { button.disabled = value; });
+  document.querySelectorAll('[data-mode], #new-variation, #reset').forEach(button => { button.disabled = value; });
 }
 function renderState(message) {
   $('status').textContent = message;
@@ -170,7 +170,7 @@ $('reset').addEventListener('click', () => {
   points[mode] = null; engine?.setPad(null);
   settings[mode] = { ...modes[mode].defaults }; phrasing[mode] = { ...melodyDefaults[mode] }; engine?.setMelody(phrasing[mode]); if (!engine) openGrid(); renderControls(); engine?.update({ ...settings[mode], fade }); effectMessage(playing);
 });
-$('variation').addEventListener('click', () => {
+$('new-variation').addEventListener('click', () => {
   const value = new Uint32Array(1); crypto.getRandomValues(value); seeds[mode] = value[0];
   renderControls(); engine?.setMode(mode, seeds[mode], { ...settings[mode], fade }); engine?.setMelody(phrasing[mode]); engine?.setPad(points[mode]); openGrid(); effectMessage(playing);
   if (playing) renderState('A new variation is finding its way');
