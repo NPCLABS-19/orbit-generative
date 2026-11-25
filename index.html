@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>if (location.protocol === 'file:') location.replace('http://127.0.0.1:4180/');</script>
+  <title>Orbit · Generative music</title>
+  <meta name="description" content="Three generative electronic worlds, one instrument. Shape original analog electronica, melodic house and hard techno with the same controls.">
+  <meta name="theme-color" content="#111719"><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to instrument</a>
+  <header><a class="wordmark" href="./"><svg viewBox="0 0 30 30" aria-hidden="true"><ellipse cx="15" cy="15" rx="13" ry="6" transform="rotate(-35 15 15)"/><circle cx="15" cy="15" r="7"/></svg>Orbit<span class="header-divider">/</span><span class="wordmark-detail">Generative music</span></a><a class="original-link" href="https://npclabs-19.github.io/odyssey-soundscape/" target="_blank" rel="noopener">Original soundscape</a></header>
+  <main id="main">
+    <section class="instrument" aria-labelledby="title">
+      <div class="intro"><h1>Three worlds.<br>One instrument.</h1><p>Choose a direction. Shape the sound.<br>Let the next phrase find its own way.</p></div>
+      <div class="mode-tabs" role="group" aria-label="Music genre">
+        <button class="mode active" data-mode="analog" aria-pressed="true"><span class="mode-color analog"></span><span>Warm analog<span>Electronica</span></span></button>
+        <button class="mode" data-mode="house" aria-pressed="false"><span class="mode-color house"></span><span>Melodic<span>House</span></span></button>
+        <button class="mode" data-mode="techno" aria-pressed="false"><span class="mode-color techno"></span><span>Hard<span>Techno</span></span></button>
+      </div>
+      <div class="transport"><button id="play" class="play" aria-label="Start music"><svg id="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z"/></svg><span id="play-text">Start listening</span></button><div class="session"><span id="status" role="status">Ready when you are</span><span id="elapsed">00:00</span></div><label class="timer-label" for="timer">Session<select id="timer"><option value="0">Endless</option><option value="5">5 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">60 minutes</option></select></label></div>
+      <div class="now-playing"><div><h2 id="title">Tape garden</h2><p id="description">Worn chords. Loose drums. A melody half remembered.</p></div><span class="key" id="key">G minor</span></div>
+      <div class="pad-heading"><h3>Melody pad</h3><button type="button" class="text-button" id="pad-clear">Release pad</button></div>
+      <div class="sound-stage performance-pad" id="performance-pad" role="group" aria-label="Melody performance pad" aria-describedby="pad-readout">
+        <canvas id="scope" aria-hidden="true"></canvas>
+        <button type="button" data-zone="0"><strong>Bloom</strong><small>Ringing tones</small></button>
+        <button type="button" data-zone="1"><strong>Cascade</strong><small>Climbing pulses</small></button>
+        <button type="button" data-zone="2"><strong>Undertow</strong><small>Low answers</small></button>
+        <button type="button" data-zone="3"><strong>Fracture</strong><small>Clipped syncopation</small></button>
+        <span id="pad-dot" hidden aria-hidden="true"></span>
+      </div>
+      <p id="pad-readout" class="grid-hint"></p>
+      <div class="pad-transport"><span id="section">Ready</span><span id="bar-label">Waiting for the first bar</span><span id="tempo-live">88 BPM</span></div>
+      <div class="score"><div class="score-top"><h3>Inside this bar</h3><span>16 steps · 4 beats</span></div><div class="groove-tools"><div class="segmented" role="group" aria-label="Sequencer mode"><button data-pattern="generate">Generate</button><button data-pattern="edit">Edit</button><button data-pattern="shuffle">Shuffle</button></div><select id="groove-preset" aria-label="Groove preset"></select><button class="text-button" id="save-groove">Save preset</button></div>
+        <form id="preset-form" hidden><input id="preset-name" aria-label="Preset name" placeholder="Preset name" maxlength="48" required><button class="secondary">Save</button><button type="button" class="text-button" id="cancel-save">Cancel</button></form>
+        <div class="pattern-scroll"><div id="pattern" role="group" aria-label="Sequence steps"></div></div><p id="grid-hint" class="grid-hint" role="status"></p></div>
+      <section class="sample-library" aria-labelledby="sample-title">
+        <h3 id="sample-title">Disco Jazz <span>Rupa Biswas</span></h3>
+        <div class="sample-strip"><label>Album segment<select id="sample-source"><option value="">Off</option></select></label>
+          <label>Slices<select id="slice-count"><option>4</option><option>8</option><option selected>16</option></select></label>
+          <label>Chop on<select id="sample-lane"><option value="lead">Melody</option><option value="hat">Hats</option><option value="bass">Bass</option><option value="kick">Kick</option></select></label>
+          <button type="button" class="secondary" id="preview-segment" disabled>Preview</button></div>
+        <p class="grid-hint"><span id="sample-status" role="status"></span> <span id="slice-index" aria-hidden="true"></span> <a id="source-credit" hidden target="_blank" rel="noopener">Hear on YouTube ↗</a></p>
+      </section>
+      <div class="variation"><button class="secondary" id="variation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h3c5 0 5 10 10 10h5M3 17h3c2 0 3-2 4-4M14 9c1-1 1-2 3-2h4M18 4l3 3-3 3M18 14l3 3-3 3"/></svg>New variation</button><label class="hold"><input type="checkbox" id="hold">Hold this variation</label><span class="seed" id="seed">Seed 190024</span></div>
+    </section>
+    <aside class="mixer" aria-labelledby="mixer-title"><div class="mixer-heading"><h2 id="mixer-title">Make it yours.</h2><button id="reset" class="text-button">Reset mode</button></div><p class="mixer-description">Mix</p><div id="controls" class="control-grid"></div>
+      <section class="phrase-panel" aria-labelledby="phrase-title"><h3 id="phrase-title">Melody phrasing</h3>
+        <label class="phrase-form">Phrase form<select id="phrase-form"></select></label>
+        <p id="form-description" class="grid-hint"></p><div id="phrase-controls" class="control-grid"></div>
+        <p class="grid-hint">Changes enter on the next bar. Release Hold to let the phrase evolve.</p></section>
+      <div class="utilities"><div class="slider-control"><label for="volume">Volume<output for="volume" id="volume-out">55%</output></label><input id="volume" type="range" min="0" max="100" value="55"></div><div class="slider-control"><label for="fade">Effect fade<output for="fade" id="fade-out">4 s</output></label><input id="fade" type="range" min="0.25" max="12" step="0.25" value="4"></div></div>
+      <div class="effect-state"><span class="effect-light" id="effect-light"></span><span id="effect-state" role="status">Effects settle over 4 seconds</span></div><p class="mixer-footnote">Movement, space and warmth blend gradually. Volume stays independent.</p>
+    </aside>
+    <details class="notes"><summary>How this instrument works</summary><div class="notes-grid"><div><h2>Generated, never a backing track.</h2><p>Drag across the pad to move between ringing tones, climbing pulses, low answers and clipped syncopation. Position latches on release. Use the arrow keys for fine adjustments, or Release pad to return to the underlying phrase. Pressure adds accent on supported devices. The tuned 808 follows the bass row with glide and a rounded pitch drop. Choose how the lead develops in Melody phrasing. Form and motif length govern how ideas repeat and change. Density sets the space between notes. Register shifts the lead by an octave. Hold repeats the current melodic bar.</p><p>The instruments are synthesized on your device. Album segments layer cuts from Rupa Biswas’s Disco Jazz onto the selected row. Melody sets the level of the pitched voices and chops. The audio-thread sequencer keeps timing separate from the visual display. Your effect fade controls gradual changes to stereo movement, room and echo, and the warm filter.</p></div><div><h2>One set of controls.</h2><p><strong>Tempo</strong> sets the pace. <strong>Energy</strong> shapes note density and fills. <strong>Rhythm, bass and melody</strong> balance the three musical layers. <strong>Movement</strong> opens the stereo field, <strong>space</strong> adds room and echo, and <strong>warmth</strong> rounds the filter and saturation.</p><p>These are original musical systems, influenced by warm, imperfect analog electronica, melodic progressive house and forceful techno. The <a href="https://dittytoy.net/ditty/eff498209d" target="_blank" rel="noopener">Technopolis Ditty by julienp</a> informed the study of separate synth parts and shared effects. No score or recording from that piece is included.</p></div></div></details>
+  </main>
+  <footer><span>Orbit, by NPCLABS</span><span>Original music. Made in your browser.</span><span>Headphones welcome.</span></footer>
+  <script src="app.js?v=5" type="module"></script>
+</body></html>
