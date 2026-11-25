@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { MusicDSP, modes } from '../music-core.js';
 import { maskFromSteps, presets } from '../grooves.js';
-import { segments } from '../segments.js';
+import { youtubeVideo } from '../sample-import.js';
+import { PhraseMemory } from '../phrase-memory.js';
 import { makeBank } from '../sampler.js';
 
 const plan = (scene, bar, energy) => Array.from({length: 16}, (_, step) => scene.plan(step, bar, energy));
@@ -39,21 +39,17 @@ for (const [mode, config] of Object.entries(modes)) {
   assert.notDeepEqual(maskFromSteps(plan(beat, 5, 100)), masks);
 }
 
-function sampleBank(id) {
-  const wav = readFileSync(new URL('../samples/' + id + '.wav', import.meta.url));
-  const data = wav.indexOf('data'), length = wav.readUInt32LE(data + 4) / 2;
-  const pcm = Float32Array.from({length}, (_, i) => wav.readInt16LE(data + 8 + i * 2) / 32768);
-  return makeBank(pcm, 24000);
-}
+const sampleRate = 24000;
+const fixture = Float32Array.from({length:sampleRate * 2}, (_, i) =>
+  .5 * Math.sin(i * 2 * Math.PI * 237 / sampleRate) * (.6 + .4 * Math.cos(i / 305)));
 function render(dsp, count) {
   const left = new Float32Array(count); dsp.process(left, new Float32Array(count)); return left;
 }
-for (const {start} of segments) {
-  const id = 'rupa-' + start;
+for (const divisions of [4, 8, 16]) {
   const sampled = new MusicDSP(12000, 'house', 48), dry = new MusicDSP(12000, 'house', 48);
   const grid = {type:'edit', masks:[0, 0, 0, 1], revision:1};
   sampled.scene.setGrid(grid); dry.scene.setGrid(grid);
-  const bank = sampleBank(id); assert.equal(bank.starts.length, 16);
+  const bank = makeBank(fixture, sampleRate, divisions); assert.equal(bank.starts.length, Math.min(12, divisions));
   sampled.sampler.setBank(bank);
   const wet = render(sampled, 12000), clean = render(dry, 12000);
   let diff = 0;
@@ -65,7 +61,7 @@ for (const {start} of segments) {
   sampled.sampler.setBank(null);
   const triggers = sampled.sampler.triggers;
   render(sampled, 6000); assert.equal(sampled.sampler.triggers, triggers); assert.equal(sampled.sampler.voices.length, 0);
-  console.log('PASS', id, 'real sample reaches output, follows edited lane and releases on Off');
+  console.log('PASS', divisions, 'requested slices, imported sample reaches output, follows edited lane and releases on Off');
 }
 
 // Use the same seed to isolate the effect of each live performance control.
@@ -107,3 +103,23 @@ for (const name of Object.keys(modes)) {
   assert(diff/a.length > .001 && synth.scene.subTarget >=31 && synth.scene.subTarget<=62);
 }
 console.log('PASS tuned 808 makes a measurable change to the mix in all three genres');
+
+assert.equal(youtubeVideo('https://youtu.be/abcdefghij1?t=2m3s'), 'https://www.youtube.com/watch?v=abcdefghij1&t=2m3s');
+assert.equal(youtubeVideo('https://www.youtube.com/shorts/abcdefghij1'), 'https://www.youtube.com/watch?v=abcdefghij1');
+assert.equal(youtubeVideo('https://example.org/watch?v=abcdefghij1'), null);
+const memory = new PhraseMemory(1000, () => .5);
+for (const [i,n] of [60,64,67].entries()) memory.remember({leadNote:n,decay:1,attack:.1,leadAccent:1}, i*401, 0);
+assert.equal(memory.reply(memory.next-1, 0),null);
+const answerTime = memory.next;
+assert.equal(memory.reply(answerTime, 2).leadNote, 50);
+assert(memory.next > answerTime && memory.next-answerTime !== 401);
+const rowTest = new MusicDSP(12000,'house',707).scene;
+rowTest.setGrid({type:'edit',masks:[0,0,0,0],liveRows:2,cycle:1});
+const mixed = maskFromSteps(plan(rowTest,3,65));
+assert.equal(mixed[0]+mixed[2]+mixed[3],0); assert(mixed[1]>0);
+const cloud = new MusicDSP(12000,'house',42).sampler;
+cloud.setBank(makeBank(fixture,sampleRate,4)); cloud.trigger(0,120,1);
+let tail=0; for(let i=0;i<24000;i++){ cloud.tick(); if(i>12000)tail+=Math.abs(cloud.cloudL);}
+assert(tail>10 && cloud.voices.length===0);
+cloud.setBank(null); for(let i=0;i<300;i++)cloud.tick();assert(!cloud.active);
+console.log('PASS YouTube links, timed melodic answers, independent row reset and granular release');

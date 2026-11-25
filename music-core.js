@@ -1,8 +1,9 @@
+import { PhraseMemory } from './phrase-memory.js';
 // Original generative composition and synthesis. Shared by the audio worklet and tests.
 import { shapeNote } from './performance.js';
-import { SlicePlayer } from './sampler.js';
-import { Composer } from './composer.js?v=5';
-import { lanes, shuffledMasks, validMasks } from './grooves.js';
+import { SlicePlayer } from './sampler.js?v=7';
+import { Composer } from './composer.js?v=7';
+import { lanes, maskFromSteps, shuffledMasks, validMasks } from './grooves.js?v=7';
 
 export const controls = [
   { id: 'tempo', label: 'Tempo', min: 70, max: 180, unit: ' BPM' },
@@ -68,7 +69,12 @@ class Scene {
     this.padFreqs = [0, 3, 7, 10].map(n => frequency(this.config.root + 24 + n));
     this.padTargets = [...this.padFreqs]; this.padLP = 0;
     this.leads = []; this.stepEvents = { kick: 0, hat: 0, bass: 0, melody: 0 };
-    this.left = 0; this.right = 0;
+    let draw = 0;
+    this.memory = new PhraseMemory(rate, () => hash(this.seed ^ 0x38d9, draw++));
+    this.fieldX = .5; this.fieldY = .5;
+    this.fieldSlew = 1 - Math.exp(-1 / (5 * rate));
+    this.nextSubAttack = 0; this.actualLead = null;
+    this.left = 0; this.right = 0; this.sendL = 0; this.sendR = 0;
   }
 
   noise() {
@@ -88,8 +94,9 @@ class Scene {
   setGrid(grid) {
     if (!grid || !['generate', 'edit', 'shuffle'].includes(grid.type)) return;
     if (grid.type !== 'generate' && !validMasks(grid.masks)) return;
+    if (this.grid.type !== grid.type || grid.cycle === undefined || this.grid.cycle !== grid.cycle) this.gridStart = Math.max(0, this.barIndex);
+    if (grid.type !== 'generate' && !(grid.liveRows & 8)) this.memory.clear();
     this.grid = grid;
-    this.gridStart = Math.max(0, this.barIndex);
     this.refreshMasks();
   }
 
@@ -108,7 +115,7 @@ class Scene {
     return this.score;
   }
 
-  plan(step, bar, energy) {
+  plan(step, bar, energy, generatedOnly = false) {
     const score = this.scoreFor(bar), e = energy / 100;
     const variation = hash(this.seed, bar * 16 + step);
     const analog = this.mode === 'analog', techno = this.mode === 'techno';
@@ -127,15 +134,18 @@ class Scene {
       attack: note.attack ?? .008, color: note.color ?? 2, open: step % 4 === 2,
     };
     if (this.padPoint) shapeNote(result, this.padPoint, step, bar, this.config.root, this.composer.scale, variation);
-    if (this.grid.type !== 'generate') {
-      lanes.forEach((lane, row) => { result[lane] = Boolean(this.masks[row] & (1 << step)); });
+    if (this.memory.waiting && !this.composer.held && variation > (techno ? .54 : analog ? .23 : .38)) result.lead = false;
+    if (!generatedOnly && this.grid.type !== 'generate') {
+      lanes.forEach((lane, row) => {
+        if (!(this.grid.liveRows & (1 << row))) result[lane] = Boolean(this.masks[row] & (1 << step));
+      });
     }
     return result;
   }
 
   trigger(step, bar, p) {
     const note = this.plan(step, bar, p.energy);
-    if (this.gesture && this.grid.type === 'generate') note.lead = true;
+    if (this.gesture && (this.grid.type === 'generate' || (this.grid.liveRows & 8))) note.lead = true;
     this.gesture = false;
     this.lastNote = note;
     if (note.kick) { this.kickAge = 0; this.kickPhase = 0; this.stepEvents.kick++; }
@@ -146,15 +156,18 @@ class Scene {
       this.subTarget = this.bassTarget;
       while (this.subTarget > 62) this.subTarget *= .5;
       while (this.subTarget < 31) this.subTarget *= 2;
-      this.subEnvelope = note.velocity; this.subBend = .64;
+      if (this.sample >= this.nextSubAttack) {
+        this.subEnvelope = note.velocity; this.subBend = .52;
+        const breath = hash(this.seed ^ 0x284, this.lastStep);
+        this.nextSubAttack = this.sample + this.rate * (this.mode === 'techno' ? .37 : .65) * (1 + breath * 1.4);
+      }
       this.bassTime = (this.mode === 'analog' ? .33 : this.mode === 'house' ? .21 : .14) * (120 / p.tempo);
       this.stepEvents.bass++;
     }
     if (note.lead) {
-      this.leads.push({ age: 0, phase: 0, phaseB: .2, frequency: frequency(note.leadNote), velocity: note.leadAccent,
-        decay: note.decay, attack: note.attack, color: note.color, brightness: note.brightness });
-      if (this.leads.length > 10) this.leads.shift();
-      this.stepEvents.melody++;
+      this.soundLead(note);
+      if (!this.composer.held && (this.grid.type === 'generate' || (this.grid.liveRows & 8)))
+        this.memory.remember(note, this.sample, this.score.chordRoot);
     }
     if (step === 0) {
       const { chord, chordRoot } = this.score;
@@ -162,7 +175,17 @@ class Scene {
     }
   }
 
+  soundLead(note) {
+    const start = hash(this.seed ^ 0x621f, this.stepEvents.melody);
+    this.leads.push({ age: 0, phase: 0, phaseB: .2, frequency: frequency(note.leadNote), velocity: note.leadAccent,
+      decay: note.decay, attack: note.attack, color: note.color, brightness: note.brightness,
+      azimuth: start * TAU, distance: hash(this.seed ^ 0x316a, this.stepEvents.melody) });
+    if (this.leads.length > 10) this.leads.shift();
+    this.stepEvents.melody++; this.actualLead = note;
+  }
+
   tick(p) {
+    this.actualLead = null;
     const dt = 1 / this.rate;
     const abs = Math.floor(this.beat * 4 + 1e-8), step = abs % 16, bar = Math.floor(abs / 16);
     // Odd sixteenths land later in the analog mode; the following even step stays on-grid.
@@ -170,6 +193,13 @@ class Scene {
     if (abs !== this.lastStep && this.beat >= abs * .25 + swing) {
       this.lastStep = abs; this.trigger(step, bar, p);
     }
+    if (this.sample >= this.memory.next && !this.composer.held) {
+      const answer = this.memory.reply(this.sample, this.score.chordRoot);
+      if (answer) this.soundLead(answer);
+    }
+    this.fieldX += this.fieldSlew * ((this.padPoint?.x ?? .5) - this.fieldX);
+    this.fieldY += this.fieldSlew * ((this.padPoint?.y ?? .5) - this.fieldY);
+    const time = this.sample * dt;
     const noise = this.noise();
     this.kickAge += dt; this.hatAge += dt; this.clapAge += dt;
     const techno = this.mode === 'techno', analog = this.mode === 'analog';
@@ -185,8 +215,10 @@ class Scene {
     const clapBursts = Math.exp(-this.clapAge * 26) * (.55 + .45 * Math.sin(this.clapAge * 1250));
     this.clapLP += .28 * (noise - this.clapLP);
     const clap = (noise - this.clapLP) * clapBursts * .32;
-    const drums = (kick * .77 + clap) * p.rhythm / 100;
-    hat *= p.rhythm / 100;
+    const air = .5 + .5 * Math.sin(time * .19 + this.seed % 13);
+    const clapLevel = clap * (.48 + .44 * Math.sin(time * .103 + 1.8)) * p.rhythm / 100;
+    const drums = kick * .77 * p.rhythm / 100 + clapLevel;
+    hat *= p.rhythm / 100 * (.24 + .76 * air) * (.7 + .6 * this.fieldX);
 
     this.bassFrequency += .006 * (this.bassTarget - this.bassFrequency);
     this.bassTime -= dt;
@@ -212,7 +244,8 @@ class Scene {
     }
     this.padLP += .11 * (pad - this.padLP);
     pad = this.padLP * (techno ? .007 : analog ? .034 : .026) * p.melody / 100 * (.65 + .35 * duck);
-    let lead = 0;
+    pad *= .65 + .35 * Math.sin(time * .071 + this.seed % 7);
+    let leadL = 0, leadR = 0, depthL = 0, depthR = 0;
     for (let i = this.leads.length - 1; i >= 0; i--) {
       const voice = this.leads[i]; voice.age += dt;
       const env = Math.min(1, voice.age / voice.attack) * Math.exp(-voice.age * voice.decay);
@@ -221,16 +254,22 @@ class Scene {
       voice.phaseB = (voice.phaseB + voice.frequency * (techno ? 2.003 : 1.001) * dt) % 1;
       const wave = techno ? Math.sin(TAU * voice.phase + voice.color * voice.brightness * Math.sin(TAU * voice.phaseB))
         : Math.sin(TAU * voice.phase) + .3 * voice.brightness * Math.sin(TAU * voice.phase * 2) + .15 * Math.sin(TAU * voice.phaseB);
-      lead += wave * env * voice.velocity * (techno ? .14 : analog ? .10 : .13);
+      const pan = Math.sin(voice.azimuth + time * .077) * p.movement / 100 * .8;
+      const depth = Math.min(1, .12 + .5 * voice.distance + .38 * this.fieldY);
+      const tone = wave * env * voice.velocity * (techno ? .14 : analog ? .10 : .13) * p.melody / 100;
+      leadL += tone * (1 - pan) * (1 - depth * .36);
+      leadR += tone * (1 + pan) * (1 - depth * .36);
+      depthL += tone * depth * (1 - pan); depthR += tone * depth * (1 + pan);
     }
-    lead *= p.melody / 100;
     const pan = Math.sin(this.beat * .11 + .7) * p.movement / 100 * .7;
     const padPan = Math.sin(this.beat * .057 + 2) * p.movement / 100 * .55;
     const bedNoise = analog ? noise * .0018 * p.melody / 100 : 0;
     const rumble = techno ? Math.sin(TAU * this.kickPhase * .5) * kickEnv * .09 * p.bass / 100 : 0;
     const modeLevel = techno ? .73 : 1;
-    this.left = (drums + bass + rumble + hat * (1 - pan * .3) + lead * (1 - pan) + pad * (1 - padPan) + bedNoise) * modeLevel;
-    this.right = (drums + bass + rumble + hat * (1 + pan * .3) + lead * (1 + pan) + pad * (1 + padPan) - bedNoise) * modeLevel;
+    this.left = (drums + bass + rumble + hat * (1 - pan * .3) + leadL + pad * (1 - padPan) + bedNoise) * modeLevel;
+    this.right = (drums + bass + rumble + hat * (1 + pan * .3) + leadR + pad * (1 + padPan) - bedNoise) * modeLevel;
+    this.sendL = (depthL + pad * (1 - padPan) * (.4 + this.fieldY) + .4 * hat + .25 * clapLevel) * modeLevel;
+    this.sendR = (depthR + pad * (1 + padPan) * (.4 + this.fieldY) + .4 * hat + .25 * clapLevel) * modeLevel;
     this.beat += p.tempo / 60 * dt; this.sample++;
   }
 }
@@ -277,6 +316,7 @@ export class MusicDSP {
     this.hold = Boolean(value);
     for (const scene of [this.scene, this.outgoing]) if (scene) {
       scene.composer.held = this.hold;
+      if (this.hold) scene.memory.clear();
     }
   }
 
@@ -290,22 +330,29 @@ export class MusicDSP {
       }
       const previousStep = this.scene.lastStep;
       this.scene.tick(p);
-      if (this.sampler.bank && previousStep !== this.scene.lastStep && this.scene.lastNote[this.sampleLane]) {
-        const n = this.scene.lastNote;
+      const triggerSample = this.sampleLane === 'lead' ? this.scene.actualLead :
+        previousStep !== this.scene.lastStep && this.scene.lastNote[this.sampleLane] && this.scene.lastNote;
+      if (this.sampler.bank && triggerSample) {
+        const n = triggerSample;
         const cut = Math.floor(hash(this.seed ^ n.leadNote, this.scene.lastStep) * this.sampler.bank.starts.length);
         this.sampler.trigger(cut, p.tempo, n.leadAccent);
       }
       let l = this.scene.left, r = this.scene.right;
+      let sendL = this.scene.sendL, sendR = this.scene.sendR;
       if (this.outgoing) {
         this.outgoing.tick(this.outgoingParams); this.transition = Math.min(1, this.transition + 1 / this.transitionFrames);
         // Linear crossfade avoids a boost when the two related scenes overlap.
         l = l * this.transition + this.outgoing.left * (1 - this.transition);
         r = r * this.transition + this.outgoing.right * (1 - this.transition);
+        sendL = sendL * this.transition + this.outgoing.sendL * (1 - this.transition);
+        sendR = sendR * this.transition + this.outgoing.sendR * (1 - this.transition);
         if (this.transition === 1) this.outgoing = null;
       }
-      if (this.sampler.voices.length) {
+      if (this.sampler.active) {
         const chop = this.sampler.tick() * .55 * p.melody / 100;
-        l += chop; r += chop;
+        const wash = p.melody / 100 * (.15 + .24 * this.scene.fieldY);
+        l += chop + this.sampler.cloudL * wash; r += chop + this.sampler.cloudR * wash;
+        sendL += chop * .35 + this.sampler.cloudL * wash; sendR += chop * .35 + this.sampler.cloudR * wash;
       }
       const warmth = p.warmth / 100;
       const cutoff = 15000 * Math.pow(.075, warmth);
@@ -317,14 +364,14 @@ export class MusicDSP {
       const delayLength = Math.round(this.rate * 60 / p.tempo * .75);
       const read = (this.delayIndex - delayLength + this.delayL.length) % this.delayL.length;
       const dl = this.delayL[read], dr = this.delayR[read];
-      this.delayL[this.delayIndex] = l + dr * .29;
-      this.delayR[this.delayIndex] = r + dl * .29;
+      this.delayL[this.delayIndex] = sendL + dr * .29;
+      this.delayR[this.delayIndex] = sendR + dl * .29;
       this.delayIndex = (this.delayIndex + 1) % this.delayL.length;
       let roomL = 0, roomR = 0;
       for (let c = 0; c < this.combs.length; c++) {
         const comb = this.combs[c], reflected = comb.data[comb.index];
         comb.lp += .3 * (reflected - comb.lp);
-        comb.data[comb.index] = (l + r) * .18 + comb.lp * .72;
+        comb.data[comb.index] = (sendL + sendR) * .18 + comb.lp * .72;
         comb.index = (comb.index + 1) % comb.data.length;
         if (c % 2) roomL += reflected; else roomR += reflected;
       }
@@ -343,6 +390,8 @@ export class MusicDSP {
     const bar = Math.floor(this.scene.beat / 4), step = Math.floor(this.scene.beat * 4) % 16;
     const pattern = Array.from({ length: 16 }, (_, n) => this.scene.plan(n, bar, this.params.energy));
     return { mode: this.mode, seed: this.seed, bar: bar + 1, step, beat: this.scene.beat,
+      generated: maskFromSteps(this.scene.grid.type === 'generate' ? pattern :
+        Array.from({length:16}, (_, n) => this.scene.plan(n, bar, this.params.energy, true))),
       section: this.scene.score.section, revision: this.scene.grid.revision,
       transition: this.transition, tempo: this.params.tempo, pattern,
       current: { movement: this.params.movement, space: this.params.space, warmth: this.params.warmth },

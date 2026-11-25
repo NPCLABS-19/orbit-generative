@@ -1,4 +1,4 @@
-import { MusicDSP } from './music-core.js?v=5';
+import { MusicDSP } from './music-core.js?v=7';
 
 class OrbitMusicProcessor extends AudioWorkletProcessor {
   constructor(options) {

@@ -1,9 +1,9 @@
 import { TouchPad } from './touch-pad.js';
 import { forms, melodyControls, melodyDefaults } from './phrases.js';
-import { controls, modes, openingPattern } from './music-core.js?v=5';
-import { PatternEditor } from './pattern-editor.js';
-import { SamplePanel } from './sample-panel.js?v=5';
-import { MusicEngine } from './audio-engine.js?v=5';
+import { controls, modes, openingPattern } from './music-core.js?v=7';
+import { PatternEditor } from './pattern-editor.js?v=7';
+import { SamplePanel } from './sample-panel.js?v=7';
+import { MusicEngine } from './audio-engine.js?v=7';
 
 const $ = id => document.getElementById(id);
 const descriptions = {
@@ -222,5 +222,5 @@ function startVisual() {
 }
 new ResizeObserver(drawStage).observe(canvas);
 document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelAnimationFrame(frame); frame = 0; } else { drawStage(); if (playing) startVisual(); } });
-window.addEventListener('pagehide', () => { samplePanel.stopPreview(); engine?.close().catch(() => {}); playing = false; cancelAnimationFrame(frame); frame = 0; renderState('Ready when you are'); });
+window.addEventListener('pagehide', () => { samplePanel.clear(); engine?.close().catch(() => {}); playing = false; cancelAnimationFrame(frame); frame = 0; renderState('Ready when you are'); });
 renderControls(); openGrid(); drawStage();

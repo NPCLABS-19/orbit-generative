@@ -27,8 +27,8 @@ export const validMasks = masks => Array.isArray(masks) && masks.length === lane
 
 export function shuffledMasks(original, mode, seed, turn) {
   if (turn <= 0) return original;
-  const rand = randomStream(seed ^ Math.imul(turn, 1664525));
   return original.map((mask, row) => {
+    const rand = randomStream(seed ^ Math.imul(turn, 1664525) ^ Math.imul(row, 0x9e3779b1));
     const on = [], off = [];
     for (let i = 0; i < 16; i++) {
       // Keep the downbeat, and the four-on-the-floor kick when the source has one.

@@ -40,7 +40,7 @@ function report(name, values = {}) { results.push({ name, passed: true, ...value
 for (const [mode, config] of Object.entries(modes)) {
   assert.deepEqual(Object.keys(config.defaults).sort(), controls.map(c => c.id).sort());
   const dsp = new MusicDSP(rate, mode, 190024);
-  const { pcm, ...metrics } = render(dsp, 12, true);
+  const { pcm, ...metrics } = render(dsp, 38, true);
   assert(metrics.peak < .93 && metrics.peak > .1);
   assert(metrics.rms > .015 && metrics.stereoDifference > .0001);
   assert(metrics.realtimeRatio < .8, 'DSP must be comfortably faster than playback');

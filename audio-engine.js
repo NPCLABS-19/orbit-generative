@@ -12,7 +12,7 @@ export class MusicEngine {
     // resume belongs to the original user gesture, before waiting for module loading.
     await this.context.resume();
     if (!this.context.audioWorklet) throw new Error('AudioWorklet is unavailable. Open this on localhost in a recent browser.');
-    await this.context.audioWorklet.addModule(new URL('./music-worklet.js?v=5', import.meta.url));
+    await this.context.audioWorklet.addModule(new URL('./music-worklet.js?v=7', import.meta.url));
     this.node = new AudioWorkletNode(this.context, 'orbit-music', {
       numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2],
       processorOptions: { mode, seed, values, sequence },

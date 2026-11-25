@@ -34,12 +34,16 @@ Each genre remembers its own phrase form, motif length (3–9 notes), density, v
 
 The pad’s range from sustained tones to clipped percussion takes its cue from the requested album. [Jon Hopkins, Immunity](https://jonhopkins.bandcamp.com/album/immunity-2)
 
-## Album segments
+## Importing samples
 
-All built-in segments use the supplied Rupa Biswas recording. The dropdown groups eight six-second excerpts by track and shows their exact timestamps. Preview auditions the selected excerpt. Choose 4, 8 or 16 transient-aligned slices and a trigger row to play it with the sequence. The source link opens the recording at the selected section. [Disco Jazz recording](https://www.youtube.com/watch?v=W2avGFXiueo)
+Paste a YouTube video link and open it at the passage you want. In desktop Chrome or Edge, choose Capture tab audio in Orbit, then pick the playing video tab and enable tab audio. Orbit records the selected 6, 12 or 24 seconds, finds slice starts and assigns the cuts to a sequencer row. A compatible local audio file can also supply the passage. Audio stays in the current tab and is cleared on reload.
+
+An imported slice has a rhythmic attack and an overlapping granular tail. The lead remembers short calls and answers 10–28 seconds later on its own clock. Upper percussion rises and falls independently. The pad changes the next note immediately and gradually changes the surrounding levels and depth. The kick and 808 stay centered while the upper voices have independent positions and room sends.
+
+Each row's menu can clear its hits or return it to the live generator. Other rows keep their settings, including their place in Shuffle.
 
 ## References
 
-The existing [Orbit soundscape](https://npclabs-19.github.io/odyssey-soundscape/) informed the interface and control behavior. The user supplied [Technopolis by julienp on Dittytoy](https://dittytoy.net/ditty/eff498209d); its separate synth parts and shared effects bus informed the technical investigation. The composition and synthesis are original. The optional playlist samples are separate from the Ditty reference.
+The existing [Orbit soundscape](https://npclabs-19.github.io/odyssey-soundscape/) informed the interface and control behavior. The user supplied [Technopolis by julienp on Dittytoy](https://dittytoy.net/ditty/eff498209d); its separate synth parts and shared effects bus informed the technical investigation. The composition and synthesis are original. The sampler starts empty.
 
 GitHub Pages serves the studio from the root of the main branch.
